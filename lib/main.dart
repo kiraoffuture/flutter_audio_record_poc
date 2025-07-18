@@ -1,122 +1,160 @@
+import 'dart:io';
+import 'dart:async';
+import 'package:audio_record_poc/player_item_widget.dart';
+import 'package:audio_record_poc/utils.dart';
 import 'package:flutter/material.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:path_provider/path_provider.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  // This widget is the root of your application.
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+  Widget build(BuildContext context) => const MaterialApp(home: HomePage());
+}
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  List<File> _files = [];
+  bool _isMixing = false;
+  bool _isDeletingAllFiles = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    displayFiles();
+  }
+
+  Future<void> mixAudio() async {
+    setState(() => _isMixing = true);
+    final temporaryDirectory = await getTemporaryDirectory();
+    final musicFile = await Utils.copyAssetToFile(
+      temporaryDirectory.path,
+      'lib/assets/audio/music.mp3',
+      'music.mp3',
+    );
+    final vocalFile = await Utils.copyAssetToFile(
+      temporaryDirectory.path,
+      'lib/assets/audio/vocal.mp3',
+      'vocal.mp3',
+    );
+    final output = File('${temporaryDirectory.path}/output_mix.mp3');
+
+    final pathMusic = musicFile.path;
+    final pathVocal = vocalFile.path;
+    final pathMixed = output.path;
+
+    // Step 1: Mix
+    await FFmpegKit.execute(
+      '-i $pathMusic -i $pathVocal -filter_complex amix=inputs=2:duration=longest $pathMixed',
+    );
+
+    // Step 2: Trim
+    // await FFmpegKit.execute('-i $pathMixed -t ${266 / 2} $pathFinal');
+
+    displayFiles();
+    setState(() => _isMixing = false);
+  }
+
+  Future<void> displayFiles() async {
+    final temporaryDirectory = await getTemporaryDirectory();
+    final files = temporaryDirectory.listSync();
+    setState(
+      () =>
+          _files =
+              files
+                  .map((e) => File(e.path))
+                  .where((e) => e.path.contains('mp3'))
+                  .toList(),
     );
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  void deleteFile(File file) {
+    file.delete();
+    setState(() => _files.remove(file));
+  }
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  Future<void> deleteAllFiles() async {
+    setState(() => _isDeletingAllFiles = true);
+    await Future.wait(_files.map((e) => e.delete()));
+    Future.delayed(const Duration(seconds: 2), () {
+      setState(() {
+        _files.clear();
+        _isDeletingAllFiles = false;
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+      appBar: AppBar(title: const Text('Audio Mix POC')),
+      body: SingleChildScrollView(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _isDeletingAllFiles ? null : deleteAllFiles,
+                      child:
+                          _isDeletingAllFiles
+                              ? const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Text('Delete all files'),
+                    ),
+                    ElevatedButton(
+                      onPressed: _isMixing ? null : mixAudio,
+                      child:
+                          _isMixing
+                              ? SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Text('Mix audio'),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    const Text('File list', style: TextStyle(fontSize: 24)),
+                  ],
+                ),
+              ),
+              ..._files.map(
+                (e) => PlayerItemWidget(
+                  title: e.uri.pathSegments.last,
+                  path: e.path,
+                ),
+              ),
+              SizedBox(height: 100),
+            ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }

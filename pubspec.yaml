@@ -35,6 +35,8 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   ffmpeg_kit_flutter_new: ^2.0.0
+  path_provider: ^2.1.5
+  audioplayers: ^6.5.0
 
 dev_dependencies:
   flutter_test:
