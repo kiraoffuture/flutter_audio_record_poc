@@ -37,6 +37,7 @@ dependencies:
   ffmpeg_kit_flutter_new: ^2.0.0
   path_provider: ^2.1.5
   audioplayers: ^6.5.0
+  record: ^6.0.0
 
 dev_dependencies:
   flutter_test:

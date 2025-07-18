@@ -5,6 +5,7 @@ import 'package:audio_record_poc/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 void main() => runApp(const MyApp());
 
@@ -21,14 +22,37 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final audioRecorder = AudioRecorder();
   List<File> _files = [];
   bool _isMixing = false;
   bool _isDeletingAllFiles = false;
+  bool _isRecording = false;
 
   @override
   void initState() {
     super.initState();
 
+    displayFiles();
+  }
+
+  Future<void> _startRecording() async {
+    setState(() => _isRecording = true);
+    if (await audioRecorder.hasPermission()) {
+      final temporaryDirectory = await getTemporaryDirectory();
+      final outputPath = '${temporaryDirectory.path}/record.m4a';
+      final outputFile = File(outputPath);
+      if (await outputFile.exists()) {
+        await outputFile.delete();
+      }
+      await outputFile.create(recursive: true);
+      await audioRecorder.start(const RecordConfig(), path: outputFile.path);
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    await audioRecorder.stop();
+    await audioRecorder.dispose();
+    setState(() => _isRecording = false);
     displayFiles();
   }
 
@@ -71,14 +95,19 @@ class _HomePageState extends State<HomePage> {
           _files =
               files
                   .map((e) => File(e.path))
-                  .where((e) => e.path.contains('mp3'))
+                  .where(
+                    (e) => e.path.contains('mp3') || e.path.contains('m4a'),
+                  )
                   .toList(),
     );
   }
 
-  void deleteFile(File file) {
-    file.delete();
-    setState(() => _files.remove(file));
+  Future<bool> deleteFile(String path) async {
+    final file = File(path);
+    await file.delete();
+    setState(() => _files.removeWhere((e) => e.path == path));
+    displayFiles();
+    return true;
   }
 
   Future<void> deleteAllFiles() async {
@@ -101,6 +130,35 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              SizedBox(height: 36),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: ElevatedButton(
+                      onPressed: _isRecording ? null : _startRecording,
+                      child:
+                          _isRecording
+                              ? const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Text('Start recording'),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: ElevatedButton(
+                      onPressed: !_isRecording ? null : _stopRecording,
+                      child: const Text('Stop recording'),
+                    ),
+                  ),
+                ],
+              ),
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
@@ -148,6 +206,7 @@ class _HomePageState extends State<HomePage> {
                 (e) => PlayerItemWidget(
                   title: e.uri.pathSegments.last,
                   path: e.path,
+                  onDelete: deleteFile,
                 ),
               ),
               SizedBox(height: 100),
