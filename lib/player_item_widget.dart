@@ -25,6 +25,17 @@ class _PlayerItemWidgetState extends State<PlayerItemWidget> {
   void initState() {
     super.initState();
     player = AudioPlayer();
+    player?.setAudioContext(
+      AudioContext(
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playAndRecord,
+          options: {
+            AVAudioSessionOptions.allowBluetooth,
+            AVAudioSessionOptions.allowBluetoothA2DP,
+          },
+        ),
+      ),
+    );
     player?.setSource(DeviceFileSource(widget.path));
   }
 
